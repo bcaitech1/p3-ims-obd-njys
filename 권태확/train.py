@@ -36,7 +36,7 @@ def get_test_transform():
 
 
 def train(args):
-    wandb.init(project='Pstage3', name='{args.name}')
+    wandb.init(project='Pstage3', name=f'{args.name}')
     wandb.config.update(args)
 
     seed_everything(args.seed)
@@ -79,10 +79,10 @@ def train(args):
         # -- loss & metric
     criterion = nn.CrossEntropyLoss()
     opt_module = getattr(import_module("torch.optim"), args.optimizer)  # default: SGD
-    optimizer = torch.optim.Adam(
+    optimizer = opt_module(
         filter(lambda p: p.requires_grad, model.parameters()),
         lr=args.lr,
-        weight_decay=1e-6
+        weight_decay=5e-4
     )
     scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
 
