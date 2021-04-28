@@ -196,12 +196,12 @@ def train(args):
                 print('Best performance at epoch: {}'.format(epoch + 1))
                 print('Save model in', saved_dir)
                 best_loss = avrg_loss
-                save_model(model, saved_dir=saved_dir, file_name = f'epoch_{epoch}_loss_{best_loss}.pth', save_limit=args.save_limit)
+                save_model(model, saved_dir=saved_dir, file_name = f'epoch_{epoch}_loss_{best_loss:.4f}.pth', save_limit=args.save_limit)
             if mIoU > best_mIoU:
                 print('[mIoU] Best performance at epoch: {}'.format(epoch + 1))
                 print('Save model in', saved_dir)
                 best_mIoU = mIoU
-                save_model(model, saved_dir, file_name = f'epoch_{epoch}_mIoU_{best_mIoU}.pth', save_limit=args.save_limit)
+                save_model(model, saved_dir, file_name = f'epoch_{epoch}_mIoU_{best_mIoU:.4f}.pth', save_limit=args.save_limit)
 
     submission = pd.read_csv('./submission/sample_submission.csv', index_col=None)
     file_names, preds = test(model, test_loader, device)
