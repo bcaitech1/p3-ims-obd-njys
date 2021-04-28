@@ -16,5 +16,5 @@
 - `git pull`
 - `git branch [branch_name]`
 - `git checkout [branch name]`
-- 커밋 한 후에
+- 커밋 한 후에   if 커밋 안될때 -> `git config --global user.name [username]`  `git config --global user.email [email@xxx.com]`
 - `git push origin [branch name]`
