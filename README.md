@@ -9,7 +9,7 @@
 
 ## 사용법
 - master 에서 바로 작업 하지 않기.
-- 본인의 opt/ml/code 등 git hub 아닌 폴더에 파일 복사해서 작업하고 변경한 아이디어가 좋은게 있으면 PL 날리기
+- 본인의 opt/ml/code 등 git hub 아닌 폴더에 파일 복사해서 작업하고 변경한 아이디어가 좋은게 있으면 PR 날리기
 
 ## git hub 사용법
 - `git clone [repo_ulr]`
