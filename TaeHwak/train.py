@@ -40,7 +40,6 @@ def get_test_transform(height = 224, width = 224):
                         ])
 
 
-
 def train(args):
     wandb.init(project='Pstage3', name=f'{args.name}')
     wandb.config.update(args)
