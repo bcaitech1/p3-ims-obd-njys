@@ -6,7 +6,7 @@ from torchvision.models import vgg16
 import segmentation_models_pytorch as smp
 
 
-def DeepLabV3Plus(encoder_name='timm-regnety_320',
+def DeepLabV3Plus(encoder_name='timm-regnetx_320',
                 encoder_weights='imagenet',
                 in_channels=3,
                 classes=12):
