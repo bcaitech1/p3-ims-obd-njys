@@ -53,9 +53,9 @@ def train(args):
 
 
     # -- transform
-    train_transform = get_train_transform(height = args.image_resize, width = args.image_resize)
-    val_transform = get_val_transform(height = args.image_resize, width = args.image_resize)
-    test_transform = get_test_transform(height = args.image_resize, width = args.image_resize)
+    train_transform = get_train_transform(height = args.image_resize, widht = args.image_resize)
+    val_transform = get_val_transform(height = args.image_resize, widht = args.image_resize)
+    test_transform = get_test_transform(height = args.image_resize, widht = args.image_resize)
 
     # -- dataset
     train_dataset, train_loader = get_DataLoader(args.dataset, 'train', transform=train_transform,
