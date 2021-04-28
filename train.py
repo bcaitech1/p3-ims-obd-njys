@@ -40,6 +40,60 @@ def get_test_transform(height = 224, width = 224):
                         ])
 
 
+def rand_bbox(size, lam, half=False)->tuple:
+    '''
+    랜덤한 bounding box의 좌상단,우하단 좌표 반환
+
+    Args:
+        size (tuple): batch의 shape
+        lam (float): 자를 비율
+        half (bool): 절반으로 자름
+    '''
+
+    W = size[2]
+    H = size[3]
+
+    cut_rat = np.sqrt(1. - lam)
+    cut_w = np.int(W * cut_rat)
+    cut_h = np.int(H * cut_rat)
+
+    cx = np.random.randint(W)
+    cy = np.random.randint(H)
+    
+    if half==False:
+        bbx1 = np.clip(cx - cut_w // 2, 0, W) 
+        bby1 = np.clip(cy - cut_h // 2, 0, H)
+        bbx2 = np.clip(cx + cut_w // 2, 0, W)
+        bby2 = np.clip(cy + cut_h // 2, 0, H)
+    else:
+        bbx1 = 0
+        bby1 = 0
+        bbx2 = W//2
+        bby2 = H
+
+    return bbx1, bby1, bbx2, bby2
+
+def cutmix(image, mask, alpha, half=False):
+    '''
+    이미지와 마스크 컷믹스
+
+    Args:
+        image (tensor): batch 이미지
+        mask (tensor): batch 마스크
+        alpha (float): Beta Distribution의 alpha 값
+    '''
+  
+    indices = torch.randperm(image.size(0)) # 배치 크기 입력
+
+    lam = np.clip(np.random.beta(alpha, alpha),0.3,0.4)
+    bbx1, bby1, bbx2, bby2 = rand_bbox(image.size(), lam, half)
+    new_image = image.clone()
+    new_mask = mask.clone()
+    new_image[:, :, bby1:bby2, bbx1:bbx2] = image[indices, :, bby1:bby2, bbx1:bbx2]
+    new_mask[:, bby1:bby2, bbx1:bbx2] = mask[indices, bby1:bby2, bbx1:bbx2]
+
+    return new_image, new_mask
+
 def train(args):
     wandb.init(project='Pstage3', name=f'{args.name}')
     wandb.config.update(args)
@@ -107,6 +161,12 @@ def train(args):
             
             # gpu 연산을 위해 device 할당
             images, masks = images.to(device), masks.to(device)
+
+            # 50% 확률 cutmix
+            mix_decision = np.random.rand()
+            if mix_decision < 0.5:
+                # cutmix(data, target, alpha)
+                images, masks = cutmix(images, masks, 1., half=False)
             
             # inference
             outputs = model(images)
