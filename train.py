@@ -173,6 +173,9 @@ def validation(epoch, model, data_loader, criterion, device):
             hist = add_hist(hist, masks.detach().cpu().numpy(), outputs, n_class=12)
             
         acc, acc_cls, mIoU, fwavacc = label_accuracy_score(hist)    
+        
+        wandb.log({'val_acc': acc, 'mIoU':mIoU})
+
         avrg_loss = total_loss / cnt
         print('Validation #{}  Average Loss: {:.4f}, mIoU: {:.4f}, acc : {:.4f}'.format(epoch, avrg_loss, mIoU, acc))
 
