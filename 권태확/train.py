@@ -76,7 +76,10 @@ def train(args):
     model_module = getattr(import_module("model"), args.model)  # default: BaseModel
     
     model = model_module(
-        num_classes=num_classes
+        encoder_name=args.encoder_name,
+        encoder_weights=args.encoder_weights,
+        in_channels=args.in_channels,
+        classes=num_classes
     ).to(device)
     # model = torch.nn.DataParallel(model)
 
@@ -222,9 +225,12 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default='../input/data', help='dataset directory')
     parser.add_argument('--num_classes', type=int, default=12, help='number of classes')
     parser.add_argument('--batch_size', type=int, default=8, help='input batch size for training (default: 64)')
-    parser.add_argument('--valid_batch_size', type=int, default=128, help='input batch size for validing (default: 1000)')
+    parser.add_argument('--valid_batch_size', type=int, default=8, help='input batch size for validing (default: 1000)')
     parser.add_argument('--val_every', type=int, default=1, help='validation every {val_every}')
-    parser.add_argument('--model', type=str, default='FCN8s', help='model type (default: FCN8s)')
+    parser.add_argument('--model', type=str, default='DeepLabV3Plus', help='model type (default: DeepLabV3Plus)')
+    parser.add_argument('--encoder_name', type=str, default='timm-regnety_320', help='model encoder type (default: RegNetY320)')
+    parser.add_argument('--encoder_weights', type=str, default='imagenet', help='model pretrain weight type (default: imagenet)')
+    parser.add_argument('--in_channels', type=int, default=3, help='number of channels (default: 3)')
     parser.add_argument('--optimizer', type=str, default='Adam', help='optimizer type (default: Adam)')
     parser.add_argument('--lr', type=float, default=3e-4, help='learning rate (default: 3e-4)')
     parser.add_argument('--lr_decay_step', type=int, default=10, help='learning rate scheduler deacy step (default: 20)')
