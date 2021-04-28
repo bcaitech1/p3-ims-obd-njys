@@ -19,7 +19,7 @@ from albumentations.pytorch import ToTensorV2
 from utils import *
 from dataset import *
 
-# import wandb
+import wandb
 
 def get_train_transform():
     return A.Compose([
@@ -39,8 +39,8 @@ def get_test_transform():
 
 
 def train(args):
-    # wandb.init(project='Pstage3', name=f'{args.name}')
-    # wandb.config.update(args)
+    wandb.init(project='Pstage3', name=f'{args.name}')
+    wandb.config.update(args)
 
     seed_everything(args.seed)
     args.name = args.name.replace(' ','_')
@@ -114,7 +114,7 @@ def train(args):
             loss.backward()
             optimizer.step()
 
-            # wandb.log({'train_loss': loss})
+            wandb.log({'train_loss': loss})
 
             # step 주기에 따른 loss 출력
             if (step + 1) % 25 == 0:
@@ -171,7 +171,7 @@ def validation(epoch, model, data_loader, criterion, device):
 
             mIoU = label_accuracy_score(masks.detach().cpu().numpy(), outputs, n_class=12)[2]
 
-            # wandb.log({'val_mIoU': mIoU, 'val_loss': loss})
+            wandb.log({'val_mIoU': mIoU, 'val_loss': loss})
             mIoU_list.append(mIoU)
             
         avrg_loss = total_loss / cnt
