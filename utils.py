@@ -83,6 +83,14 @@ def get_lr(optimizer):
         return param_group['lr']
 
 
+def load_model(model, PATH):
+    '''
+    Load Model from PATH
+    '''
+    model.load_state_dict(torch.load(PATH))
+    return model
+
+
 def save_model(model, saved_dir, file_name='fcn8s_best_model(pretrained).pt', save_limit=10):
     check_point = {'net': model.state_dict()}
     output_path = os.path.join(saved_dir, file_name)
