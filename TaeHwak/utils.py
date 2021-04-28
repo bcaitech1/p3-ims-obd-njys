@@ -1,134 +1,247 @@
-# https://github.com/wkentaro/pytorch-fcn/blob/master/torchfcn/utils.py
-import random
+import argparse
 import os
-import random
-import re
-import glob
-import json
+from importlib import import_module
 from pathlib import Path
-
-
 import numpy as np
+import pandas as pd
+from tqdm import tqdm
+
 import torch
-import matplotlib.pyplot as plt
+import torch.nn as nn
+from torch.utils.data import Dataset, DataLoader
+from torch.optim.lr_scheduler import StepLR
+import segmentation_models_pytorch as smp
 
-def increment_path(path, exist_ok=False):
-    """ Automatically increment path, i.e. runs/exp --> runs/exp0, runs/exp1 etc.
-    Args:
-        path (str or pathlib.Path): f"{model_dir}/{args.name}".
-        exist_ok (bool): whether increment path (increment if False).
-    """
-    path = Path(path)
-    if (path.exists() and exist_ok) or (not path.exists()):
-        return str(path)
-    else:
-        dirs = glob.glob(f"{path}*")
-        matches = [re.search(rf"%s(\d+)" % path.stem, d) for d in dirs]
-        i = [int(m.groups()[0]) for m in matches if m]
-        n = max(i) + 1 if i else 2
-        return f"{path}{n}"
+from pycocotools.coco import COCO
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
+
+from utils import *
+from dataset import *
+
+import wandb
+
+def get_train_transform(height = 224, width = 224):
+    return A.Compose([
+                        A.Resize(height, width),
+                        ToTensorV2()
+                        ])
+
+def get_val_transform(height = 224, width = 224):
+    return A.Compose([  
+                        A.Resize(height, width),
+                        ToTensorV2()
+                        ])
+
+def get_test_transform(height = 224, width = 224):
+    return A.Compose([
+                        A.Resize(height, width),
+                        ToTensorV2()
+                        ])
 
 
-def show_image(train, row=5, shuffle=True):
-    '''
-    Helper function to show image
-    :param train: datasets that you want to show
-    :param row : rows that you want to display
-    :param shuffle : shuffle datset
-    '''
 
-    fig = plt.figure(figsize=(8,8*(row//2)), dpi=150)
+def train(args):
+    wandb.init(project='Pstage3', name=f'{args.name}')
+    wandb.config.update(args)
 
-    if shuffle:
-        img_arr = np.random.choice(len(train)-1, row, replace=False)
-    else:
-        img_arr = [i for i in range(row)]
+    seed_everything(args.seed)
+    args.name = args.name.replace(' ','_')
+    saved_dir = f'saved/{args.name}_{args.model}'
+
+    # -- settings
+    device = "cuda" if torch.cuda.is_available() else "cpu" 
+
+
+    # -- transform
+    train_transform = get_train_transform()
+    val_transform = get_val_transform()
+    test_transform = get_test_transform()
+
+    # -- dataset
+    train_dataset, train_loader = get_DataLoader(args.dataset, 'train', transform=train_transform,
+                                                batch_size=args.batch_size, shuffle=args.shuffle,
+                                                num_workers=args.num_workers)
     
-    idx = 1
+    val_dataset, val_loader = get_DataLoader(args.dataset, 'val', transform=val_transform,
+                                            batch_size=args.valid_batch_size, shuffle=args.shuffle,
+                                            num_workers=1)
+    
+    test_dataset, test_loader = get_DataLoader(args.dataset, 'test', transform=test_transform,
+                                            batch_size=args.valid_batch_size, shuffle=False,
+                                            num_workers=1)
+    
+    print(f'train_data {len(train_dataset)}, val_dataset {len(val_dataset)}, test_dataset {len(test_dataset)} loaded')
 
-    for r in range(1,row+1):
-        img, mask, infos = train[img_arr[r-1]]
-        if torch.is_tensor(img):
-            img = img.permute(1,2,0).numpy()
-            mask = mask.numpy()
-        ax = fig.add_subplot(row, 2, idx)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.imshow(img)
-        ax.set_title(infos['file_name'], fontsize=7)
-        idx += 1
+    num_classes = args.num_classes
 
-        ax = fig.add_subplot(row, 2, idx)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.imshow(mask)
-        ax.set_title('classes : ' + ', '.join(list(map(lambda x:str(int(x)), np.unique(mask)))),
-         fontsize=7)
-        idx += 1
+    # -- model
+    model_module = getattr(import_module("model"), args.model)  # default: BaseModel
+    
+    model = model_module(
+        encoder_name=args.encoder_name,
+        encoder_weights=args.encoder_weights,
+        in_channels=args.in_channels,
+        classes=num_classes
+    ).to(device)
+    # model = torch.nn.DataParallel(model)
 
-
-def seed_everything(seed):
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    # torch.cuda.manual_seed_all(seed)  # if use multi-GPU
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark=True
-
-    np.random.seed(seed)
-    random.seed(seed)
-
-
-def get_lr(optimizer):
-    for param_group in optimizer.param_groups:
-        return param_group['lr']
+        # -- loss & metric
+    criterion = nn.CrossEntropyLoss()
+    opt_module = getattr(import_module("torch.optim"), args.optimizer)  # default: SGD
+    optimizer = opt_module(
+        filter(lambda p: p.requires_grad, model.parameters()),
+        lr=args.lr,
+        weight_decay=5e-4
+    )
+    scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
 
 
-def save_model(model, saved_dir, file_name='fcn8s_best_model(pretrained).pt', save_limit=10):
-    check_point = {'net': model.state_dict()}
-    output_path = os.path.join(saved_dir, file_name)
-    file_list = os.listdir(saved_dir)
-    for fl in sorted(file_list, key=lambda x:int(x.split('_')[1]))[:-save_limit-1]:
-        os.remove(os.path.join(saved_dir, fl))
+    print('Start training..')
+    best_loss = np.Inf
+    for epoch in range(args.epochs):
+        model.train()
+        for step, (images, masks, _) in enumerate(train_loader):
+            images = torch.stack(images)       # (batch, channel, height, width)
+            masks = torch.stack(masks).long()  # (batch, channel, height, width)
+            
+            # gpu 연산을 위해 device 할당
+            images, masks = images.to(device), masks.to(device)
+            
+            # inference
+            outputs = model(images)
+            
+            # loss 계산 (cross entropy loss)
+            loss = criterion(outputs, masks)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            wandb.log({'train_loss': loss})
+
+            # step 주기에 따른 loss 출력
+            if (step + 1) % 25 == 0:
+                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'.format(
+                    epoch+1, args.epochs, step+1, len(train_loader), loss.item()))
+                
+        
+        scheduler.step()
+        # validation 주기에 따른 loss 출력 및 best model 저장
+        if (epoch + 1) % args.val_every == 0:
+            avrg_loss = validation(epoch + 1, model, val_loader, criterion, device)
+            if avrg_loss < best_loss:
+                if not os.path.isdir(saved_dir):
+                    os.mkdir(saved_dir)
+
+                print('Best performance at epoch: {}'.format(epoch + 1))
+                print('Save model in', saved_dir)
+                best_loss = avrg_loss
+                save_model(model, saved_dir=saved_dir, file_name = f'epoch_{epoch}_loss_{best_loss}.pth', save_limit=args.save_limit)
+    
+
+    submission = pd.read_csv('./submission/sample_submission.csv', index_col=None)
+    file_names, preds = test(model, test_loader, device)
+    
+    # PredictionString 대입
+    for file_name, string in zip(file_names, preds):
+        submission = submission.append({"image_id" : file_name, "PredictionString" : ' '.join(str(e) for e in string.tolist())}, 
+                                    ignore_index=True)
+
+    # submission.csv로 저장
+    _, saved_dir = saved_dir.split('/')
+    submission.to_csv(f"./submission/{saved_dir}_loss_{best_loss:.6f}.csv", index=False)
 
 
-    torch.save(model.state_dict(), output_path)
+def validation(epoch, model, data_loader, criterion, device):
+    print('Start validation #{}'.format(epoch))
+    model.eval()
+    hist = np.zeros((12, 12)) # 12 : num_classes
+    with torch.no_grad():
+        total_loss = 0
+        cnt = 0
+        for step, (images, masks, _) in enumerate(data_loader):
+            
+            images = torch.stack(images).to(device)       # (batch, channel, height, width)
+            masks = torch.stack(masks).long().to(device)  # (batch, channel, height, width)
+
+            outputs = model(images)
+            loss = criterion(outputs, masks)
+            total_loss += loss
+            cnt += 1
+            
+            outputs = torch.argmax(outputs, dim=1).detach().cpu().numpy()
+            
+            hist = add_hist(hist, masks.detach().cpu().numpy(), outputs, n_class=12)
+            
+        acc, acc_cls, mIoU, fwavacc = label_accuracy_score(hist)    
+        avrg_loss = total_loss / cnt
+        print('Validation #{}  Average Loss: {:.4f}, mIoU: {:.4f}, acc : {:.4f}'.format(epoch, avrg_loss, mIoU, acc))
+
+    return avrg_loss
 
 
-def _fast_hist(label_true, label_pred, n_class):
-    mask = (label_true >= 0) & (label_true < n_class)
-    hist = np.bincount(n_class * label_true[mask].astype(int) + label_pred[mask],
-                        minlength=n_class ** 2).reshape(n_class, n_class)
-    return hist
+def test(model, test_loader, device):
+    size = 256
+    transform = A.Compose([A.Resize(256, 256)])
+    print('Start prediction.')
+    model.eval()
+    
+    file_name_list = []
+    preds_array = np.empty((0, size*size), dtype=np.long)
+    
+    with torch.no_grad():
+        for step, (imgs, image_infos) in tqdm(enumerate(test_loader)):
+
+            # inference (512 x 512)
+            outs = model(torch.stack(imgs).to(device))
+            oms = torch.argmax(outs.squeeze(), dim=1).detach().cpu().numpy()
+            
+            # resize (256 x 256)
+            temp_mask = []
+            for img, mask in zip(np.stack(imgs), oms):
+                transformed = transform(image=img, mask=mask)
+                mask = transformed['mask']
+                temp_mask.append(mask)
+
+            oms = np.array(temp_mask)
+            
+            oms = oms.reshape([oms.shape[0], size*size]).astype(int)
+            preds_array = np.vstack((preds_array, oms))
+            
+            file_name_list.append([i['file_name'] for i in image_infos])
+    print("End prediction.")
+    file_names = [y for x in file_name_list for y in x]
+    
+    return file_names, preds_array
 
 
-def label_accuracy_score(hist):
-    """
-    Returns accuracy score evaluation result.
-      - [acc]: overall accuracy
-      - [acc_cls]: mean accuracy
-      - [mean_iu]: mean IU
-      - [fwavacc]: fwavacc
-    """
-    acc = np.diag(hist).sum() / hist.sum()
-    with np.errstate(divide='ignore', invalid='ignore'):
-        acc_cls = np.diag(hist) / hist.sum(axis=1)
-    acc_cls = np.nanmean(acc_cls)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
 
-    with np.errstate(divide='ignore', invalid='ignore'):
-        iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist))
-    mean_iu = np.nanmean(iu)
+    # Data and model checkpoints directories
+    parser.add_argument('--seed', type=int, default=42, help='random seed (default: 42)')
+    parser.add_argument('--epochs', type=int, default=1, help='number of epochs to train (default: 1)')
+    parser.add_argument('--shuffle', type=bool, default=True, help='shuffle')
+    parser.add_argument('--num_workers', type=int, default=4, help='num_workers')
+    parser.add_argument('--dataset', type=str, default='../input/data', help='dataset directory')
+    parser.add_argument('--num_classes', type=int, default=12, help='number of classes')
+    parser.add_argument('--batch_size', type=int, default=8, help='input batch size for training (default: 64)')
+    parser.add_argument('--valid_batch_size', type=int, default=8, help='input batch size for validing (default: 1000)')
+    parser.add_argument('--val_every', type=int, default=1, help='validation every {val_every}')
+    parser.add_argument('--model', type=str, default='DeepLabV3Plus', help='model type (default: DeepLabV3Plus)')
+    parser.add_argument('--encoder_name', type=str, default='timm-regnety_320', help='model encoder type (default: RegNetY320)')
+    parser.add_argument('--encoder_weights', type=str, default='imagenet', help='model pretrain weight type (default: imagenet)')
+    parser.add_argument('--in_channels', type=int, default=3, help='number of channels (default: 3)')
+    parser.add_argument('--optimizer', type=str, default='Adam', help='optimizer type (default: Adam)')
+    parser.add_argument('--lr', type=float, default=3e-4, help='learning rate (default: 3e-4)')
+    parser.add_argument('--lr_decay_step', type=int, default=10, help='learning rate scheduler deacy step (default: 20)')
+    parser.add_argument('--name', type=str, default='Baseline Code', help='model save at')
+    parser.add_argument('--save_limit', type=int, default=10, help='maximum limitation to save')
+    parser.add_argument('--image_resize', type=int, default=224, help='resize image to train & val & test')
+    # parser.add_argument('--name', default='Baseline Code', help='model save at')
 
-    freq = hist.sum(axis=1) / hist.sum()
-    fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
-    return acc, acc_cls, mean_iu, fwavacc
+    # Container environment
+    args = parser.parse_args()
+    print(args)
 
-
-def add_hist(hist, label_trues, label_preds, n_class):
-    """
-        stack hist(confusion matrix)
-    """
-
-    for lt, lp in zip(label_trues, label_preds):
-        hist += _fast_hist(lt.flatten(), lp.flatten(), n_class)
-
-    return hist
+    train(args)
