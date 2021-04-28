@@ -96,6 +96,7 @@ def makeSubmission(file_names, preds, wegith_dir):
     path = os.path.join(f'./submission/{model_name}/')
     if os.path.isdir(path):
         os.mkdir(path)
+    loss = loss.split('.')[0]
     path = f'{path}/epoch_{epoch}_loss_{float(loss):.5f}.csv'
     submission.to_csv(path, index=False)
     print(f'{path} is generated')
