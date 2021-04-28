@@ -83,9 +83,14 @@ def get_lr(optimizer):
         return param_group['lr']
 
 
-def save_model(model, saved_dir, file_name='fcn8s_best_model(pretrained).pt'):
+def save_model(model, saved_dir, file_name='fcn8s_best_model(pretrained).pt', save_limit=10):
     check_point = {'net': model.state_dict()}
     output_path = os.path.join(saved_dir, file_name)
+    file_list = os.listdir(saved_dir)
+    for fl in sorted(file_list, key=lambda x:int(x.split('_')[1]))[:-save_limit-1]:
+        os.remove(os.path.join(saved_dir, fl))
+
+
     torch.save(model.state_dict(), output_path)
 
 

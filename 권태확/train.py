@@ -4,6 +4,7 @@ from importlib import import_module
 from pathlib import Path
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 import torch
 import torch.nn as nn
@@ -16,7 +17,7 @@ from albumentations.pytorch import ToTensorV2
 from utils import *
 from dataset import *
 
-import wandb
+# import wandb
 
 def get_train_transform():
     return A.Compose([
@@ -36,8 +37,8 @@ def get_test_transform():
 
 
 def train(args):
-    wandb.init(project='Pstage3', name=f'{args.name}')
-    wandb.config.update(args)
+    # wandb.init(project='Pstage3', name=f'{args.name}')
+    # wandb.config.update(args)
 
     seed_everything(args.seed)
     args.name = args.name.replace(' ','_')
@@ -65,6 +66,7 @@ def train(args):
                                             batch_size=args.valid_batch_size, shuffle=False,
                                             num_workers=1)
     
+    print(f'train_data {len(train_dataset)}, val_dataset {len(val_dataset)}, test_dataset {len(test_dataset)} loaded')
 
     num_classes = args.num_classes
 
@@ -107,7 +109,7 @@ def train(args):
             loss.backward()
             optimizer.step()
 
-            wandb.log({'train_loss': loss})
+            # wandb.log({'train_loss': loss})
 
             # step 주기에 따른 loss 출력
             if (step + 1) % 25 == 0:
@@ -126,11 +128,12 @@ def train(args):
                 print('Best performance at epoch: {}'.format(epoch + 1))
                 print('Save model in', saved_dir)
                 best_loss = avrg_loss
-                save_model(model, saved_dir=saved_dir, file_name = f'epoch_{epoch}_loss_{best_loss}.pth')
+                save_model(model, saved_dir=saved_dir, file_name = f'epoch_{epoch}_loss_{best_loss}.pth', save_limit=args.save_limit)
     
 
     submission = pd.read_csv('./submission/sample_submission.csv', index_col=None)
     file_names, preds = test(model, test_loader, device)
+    
     # PredictionString 대입
     for file_name, string in zip(file_names, preds):
         submission = submission.append({"image_id" : file_name, "PredictionString" : ' '.join(str(e) for e in string.tolist())}, 
@@ -138,7 +141,7 @@ def train(args):
 
     # submission.csv로 저장
     _, saved_dir = saved_dir.split('/')
-    submission.to_csv(f"./submission/{saved_dir}_loss_{best_loss}.csv", index=False)
+    submission.to_csv(f"./submission/{saved_dir}_loss_{best_loss:.6f}.csv", index=False)
 
 
 def validation(epoch, model, data_loader, criterion, device):
@@ -148,7 +151,7 @@ def validation(epoch, model, data_loader, criterion, device):
         total_loss = 0
         cnt = 0
         mIoU_list = []
-        for step, (images, masks, _) in enumerate(data_loader):
+        for step, (images, masks, _) in tqdm(enumerate(data_loader)):
             
             images = torch.stack(images)       # (batch, channel, height, width)
             masks = torch.stack(masks).long()  # (batch, channel, height, width)
@@ -163,7 +166,7 @@ def validation(epoch, model, data_loader, criterion, device):
 
             mIoU = label_accuracy_score(masks.detach().cpu().numpy(), outputs, n_class=12)[2]
 
-            wandb.log({'val_mIoU': mIoU, 'val_loss': loss})
+            # wandb.log({'val_mIoU': mIoU, 'val_loss': loss})
             mIoU_list.append(mIoU)
             
         avrg_loss = total_loss / cnt
@@ -181,7 +184,7 @@ def test(model, test_loader, device):
     preds_array = np.empty((0, size*size), dtype=np.long)
     
     with torch.no_grad():
-        for step, (imgs, image_infos) in enumerate(test_loader):
+        for step, (imgs, image_infos) in tqdm(enumerate(test_loader)):
 
             # inference (512 x 512)
             outs = model(torch.stack(imgs).to(device))
@@ -211,7 +214,7 @@ if __name__ == '__main__':
 
     # Data and model checkpoints directories
     parser.add_argument('--seed', type=int, default=42, help='random seed (default: 42)')
-    parser.add_argument('--epochs', type=int, default=40, help='number of epochs to train (default: 1)')
+    parser.add_argument('--epochs', type=int, default=1, help='number of epochs to train (default: 1)')
     parser.add_argument('--shuffle', type=bool, default=True, help='shuffle')
     parser.add_argument('--num_workers', type=int, default=4, help='num_workers')
     parser.add_argument('--dataset', type=str, default='../input/data', help='dataset directory')
@@ -223,7 +226,9 @@ if __name__ == '__main__':
     parser.add_argument('--optimizer', type=str, default='Adam', help='optimizer type (default: Adam)')
     parser.add_argument('--lr', type=float, default=3e-4, help='learning rate (default: 3e-4)')
     parser.add_argument('--lr_decay_step', type=int, default=10, help='learning rate scheduler deacy step (default: 20)')
-    parser.add_argument('--name', default='Baseline Code', help='model save at')
+    parser.add_argument('--name', type=str, default='Baseline Code', help='model save at')
+    parser.add_argument('--save_limit', type=int, default=10, help='maximum limitation to save')
+    # parser.add_argument('--name', default='Baseline Code', help='model save at')
 
     # Container environment
     args = parser.parse_args()
