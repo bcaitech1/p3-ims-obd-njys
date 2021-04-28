@@ -152,30 +152,28 @@ def train(args):
 def validation(epoch, model, data_loader, criterion, device):
     print('Start validation #{}'.format(epoch))
     model.eval()
+    hist = np.zeros((12, 12)) # 12 : num_classes
     with torch.no_grad():
         total_loss = 0
         cnt = 0
-        mIoU_list = []
-        for step, (images, masks, _) in tqdm(enumerate(data_loader)):
+        for step, (images, masks, _) in enumerate(data_loader):
             
-            images = torch.stack(images)       # (batch, channel, height, width)
-            masks = torch.stack(masks).long()  # (batch, channel, height, width)
-            images, masks = images.to(device), masks.to(device)            
+            images = torch.stack(images).to(device)       # (batch, channel, height, width)
+            masks = torch.stack(masks).long().to(device)  # (batch, channel, height, width)
 
             outputs = model(images)
             loss = criterion(outputs, masks)
             total_loss += loss
             cnt += 1
             
-            outputs = torch.argmax(outputs.squeeze(), dim=1).detach().cpu().numpy()
-
-            mIoU = label_accuracy_score(masks.detach().cpu().numpy(), outputs, n_class=12)[2]
-
-            wandb.log({'val_mIoU': mIoU, 'val_loss': loss})
-            mIoU_list.append(mIoU)
+            outputs = torch.argmax(outputs, dim=1).detach().cpu().numpy()
             
+            hist = add_hist(hist, masks.detach().cpu().numpy(), outputs, n_class=12)
+            
+        acc, acc_cls, mIoU, fwavacc = label_accuracy_score(hist)    
         avrg_loss = total_loss / cnt
-        print('Validation #{}  Average Loss: {:.4f}, mIoU: {:.4f}'.format(epoch, avrg_loss, np.mean(mIoU_list)))
+        print('Validation #{}  Average Loss: {:.4f}, mIoU: {:.4f}, acc : {:.4f}'.format(epoch, avrg_loss, mIoU, acc))
+
     return avrg_loss
 
 
