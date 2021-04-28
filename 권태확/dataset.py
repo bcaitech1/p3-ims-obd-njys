@@ -86,9 +86,11 @@ def get_DataLoader(dataset_path: str, mode = 'train', transform = None,
     
     dataset = CustomDataLoader(dataset_path=dataset_path,  
                                 mode=mode, transform=transform)
-
+    drop_last = True
+    if mode == 'test':
+        drop_last = False
     loader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=shuffle,
                         num_workers=num_workers, collate_fn=collate_fn,
-                        pin_memory=True, drop_last=True)
+                        pin_memory=True, drop_last=drop_last)
 
     return dataset, loader
