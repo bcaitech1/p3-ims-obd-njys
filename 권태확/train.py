@@ -10,6 +10,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.optim.lr_scheduler import StepLR
+import segmentation_models_pytorch as smp
+
 from pycocotools.coco import COCO
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
@@ -70,7 +72,7 @@ def train(args):
 
     num_classes = args.num_classes
 
-        # -- model
+    # -- model
     model_module = getattr(import_module("model"), args.model)  # default: BaseModel
     
     model = model_module(
