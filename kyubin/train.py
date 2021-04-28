@@ -32,14 +32,14 @@ def get_val_transform():
                         ])
 
 def get_test_transform():
-    return A.Compose([
+    return A.Compose([pytho
                         ToTensorV2()
                         ])
 
 
 
 def train(args):
-    wandb.init(project='Pstage3', name=f'{args.name}')
+    wandb.init(project='Pstage3',entity='kkbwilldo_ml' name=f'{args.name}')
     wandb.config.update(args)
 
     seed_everything(args.seed)
