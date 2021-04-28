@@ -21,18 +21,21 @@ from dataset import *
 
 import wandb
 
-def get_train_transform():
+def get_train_transform(height = 224, width = 224):
     return A.Compose([
+                        A.Resize(height, width),
                         ToTensorV2()
                         ])
 
-def get_val_transform():
-    return A.Compose([
+def get_val_transform(height = 224, width = 224):
+    return A.Compose([  
+                        A.Resize(height, width),
                         ToTensorV2()
                         ])
 
-def get_test_transform():
+def get_test_transform(height = 224, width = 224):
     return A.Compose([
+                        A.Resize(height, width),
                         ToTensorV2()
                         ])
 
@@ -234,6 +237,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr_decay_step', type=int, default=10, help='learning rate scheduler deacy step (default: 20)')
     parser.add_argument('--name', type=str, default='Baseline Code', help='model save at')
     parser.add_argument('--save_limit', type=int, default=10, help='maximum limitation to save')
+    parser.add_argument('--image_resize', type=int, default=224, help='resize image to train & val & test')
     # parser.add_argument('--name', default='Baseline Code', help='model save at')
 
     # Container environment
