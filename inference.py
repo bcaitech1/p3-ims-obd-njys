@@ -81,6 +81,7 @@ def main(args):
             path = os.path.join(weight_dir, files)
             model = load_model(model, path)
             file_names, preds = test(model, test_loader, device)
+            print(len(file_names), preds.shape)
             makeSubmission(file_names, preds, path)
 
 
@@ -88,15 +89,16 @@ def makeSubmission(file_names, preds, wegith_dir):
     submission = pd.read_csv('./submission/sample_submission.csv', index_col=None)
     for file_name, string in zip(file_names, preds):
         submission = submission.append({"image_id" : file_name, "PredictionString" : ' '.join(str(e) for e in string.tolist())}, 
-                                ignore_index=True)
+                                   ignore_index=True)
+
 
     # submission.csv로 저장
     _, model_name, file_name = wegith_dir.split('/')
     _, epoch, _, loss = file_name.split('_')
-    path = os.path.join(f'./submission/{model_name}/')
-    if os.path.isdir(path):
+    path = os.path.join(f'submission/{model_name}')
+    if not os.path.isdir(path):
         os.mkdir(path)
-    loss = loss.split('.')[0]
+    loss = loss.replace('.pth','').replace('.pt','')
     path = f'{path}/epoch_{epoch}_loss_{float(loss):.5f}.csv'
     submission.to_csv(path, index=False)
     print(f'{path} is generated')
@@ -105,13 +107,13 @@ def makeSubmission(file_names, preds, wegith_dir):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='../input/data', help='dataset directory')
-    parser.add_argument('--batch_size', type=int, default=128, help='input batch size for training (default: 64)')
+    parser.add_argument('--batch_size', type=int, default=64, help='input batch size for training (default: 64)')
     parser.add_argument('--num_classes', type=int, default=12, help='number of classes')
     parser.add_argument('--model', type=str, default='DeepLabV3Plus', help='model type (default: DeepLabV3Plus)')
     parser.add_argument('--encoder_name', type=str, default='timm-regnety_320', help='model encoder type (default: RegNetY320)')
     parser.add_argument('--encoder_weights', type=str, default='imagenet', help='model pretrain weight type (default: imagenet)')
     parser.add_argument('--in_channels', type=int, default=3, help='number of channels (default: 3)')
-    parser.add_argument('--weight_dir', type=str, default='saved/Baseline_Code_DeepLabV3Plus', help='weight to test')
+    parser.add_argument('--weight_dir', type=str, default='saved/Baseline_Code_DeepLabV3Plus', help='weight directory folder or file to test')
 
     args = parser.parse_args()
     print(args)
