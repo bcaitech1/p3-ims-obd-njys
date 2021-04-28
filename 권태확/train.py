@@ -106,11 +106,14 @@ def train(args):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            
+
+            wandb.log({'train_loss': loss})
+
             # step 주기에 따른 loss 출력
             if (step + 1) % 25 == 0:
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'.format(
                     epoch+1, args.epochs, step+1, len(train_loader), loss.item()))
+                
         
         scheduler.step()
         # validation 주기에 따른 loss 출력 및 best model 저장
@@ -159,6 +162,8 @@ def validation(epoch, model, data_loader, criterion, device):
             outputs = torch.argmax(outputs.squeeze(), dim=1).detach().cpu().numpy()
 
             mIoU = label_accuracy_score(masks.detach().cpu().numpy(), outputs, n_class=12)[2]
+
+            wandb.log({'val_mIoU': mIoU, 'val_loss': loss})
             mIoU_list.append(mIoU)
             
         avrg_loss = total_loss / cnt
