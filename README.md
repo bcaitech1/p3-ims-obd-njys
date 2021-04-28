@@ -13,7 +13,7 @@
 
 ## git hub 사용법
 - `git clone [repo_ulr]`
-- cd p3-ims-obd-njys
+- `cd p3-ims-obd-njys`
 - `git pull`
 - `git branch [branch_name]`
 - `git checkout [branch name]`
