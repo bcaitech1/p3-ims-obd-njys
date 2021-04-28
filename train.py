@@ -53,9 +53,9 @@ def train(args):
 
 
     # -- transform
-    train_transform = get_train_transform()
-    val_transform = get_val_transform()
-    test_transform = get_test_transform()
+    train_transform = get_train_transform(height = args.image_resize, widht = args.image_resize)
+    val_transform = get_val_transform(height = args.image_resize, widht = args.image_resize)
+    test_transform = get_test_transform(height = args.image_resize, widht = args.image_resize)
 
     # -- dataset
     train_dataset, train_loader = get_DataLoader(args.dataset, 'train', transform=train_transform,
@@ -98,6 +98,7 @@ def train(args):
 
     print('Start training..')
     best_loss = np.Inf
+    best_mIoU = 0
     for epoch in range(args.epochs):
         model.train()
         for step, (images, masks, _) in enumerate(train_loader):
@@ -127,7 +128,7 @@ def train(args):
         scheduler.step()
         # validation 주기에 따른 loss 출력 및 best model 저장
         if (epoch + 1) % args.val_every == 0:
-            avrg_loss = validation(epoch + 1, model, val_loader, criterion, device)
+            avrg_loss, mIoU = validation(epoch + 1, model, val_loader, criterion, device)
             if avrg_loss < best_loss:
                 if not os.path.isdir(saved_dir):
                     os.mkdir(saved_dir)
@@ -136,7 +137,11 @@ def train(args):
                 print('Save model in', saved_dir)
                 best_loss = avrg_loss
                 save_model(model, saved_dir=saved_dir, file_name = f'epoch_{epoch}_loss_{best_loss}.pth', save_limit=args.save_limit)
-    
+            if mIoU > best_mIoU:
+                print('[mIoU] Best performance at epoch: {}'.format(epoch + 1))
+                print('Save model in', saved_dir)
+                best_mIoU = mIoU
+                save_model(model, saved_dir, file_name = f'epoch_{epoch}_mIoU_{best_mIoU}.pth', save_limit=args.save_limit)
 
     submission = pd.read_csv('./submission/sample_submission.csv', index_col=None)
     file_names, preds = test(model, test_loader, device)
@@ -179,7 +184,7 @@ def validation(epoch, model, data_loader, criterion, device):
         avrg_loss = total_loss / cnt
         print('Validation #{}  Average Loss: {:.4f}, mIoU: {:.4f}, acc : {:.4f}'.format(epoch, avrg_loss, mIoU, acc))
 
-    return avrg_loss
+    return avrg_loss, mIoU
 
 
 def test(model, test_loader, device):
