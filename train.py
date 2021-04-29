@@ -155,6 +155,7 @@ def train(args):
     best_mIoU = 0
     for epoch in range(args.epochs):
         model.train()
+        mean_loss = 0
         for step, (images, masks, _) in enumerate(train_loader):
             images = torch.stack(images)       # (batch, channel, height, width)
             masks = torch.stack(masks).long()  # (batch, channel, height, width)
@@ -176,14 +177,15 @@ def train(args):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
-            wandb.log({'train_loss': loss})
-
+            
+            mean_loss += loss
+            
             # step 주기에 따른 loss 출력
             if (step + 1) % 25 == 0:
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'.format(
                     epoch+1, args.epochs, step+1, len(train_loader), loss.item()))
-                
+
+        wandb.log({'train_loss': mean_loss/(step+1)})    
         
         scheduler.step()
         # validation 주기에 따른 loss 출력 및 best model 저장
@@ -202,18 +204,6 @@ def train(args):
                 print('Save model in', saved_dir)
                 best_mIoU = mIoU
                 save_model(model, saved_dir, file_name = f'epoch_{epoch}_mIoU_{best_mIoU:.4f}.pth', save_limit=args.save_limit)
-
-    submission = pd.read_csv('./submission/sample_submission.csv', index_col=None)
-    file_names, preds = test(model, test_loader, device)
-    
-    # PredictionString 대입
-    for file_name, string in zip(file_names, preds):
-        submission = submission.append({"image_id" : file_name, "PredictionString" : ' '.join(str(e) for e in string.tolist())}, 
-                                    ignore_index=True)
-
-    # submission.csv로 저장
-    _, saved_dir = saved_dir.split('/')
-    submission.to_csv(f"./submission/{saved_dir}_loss_{best_loss:.6f}.csv", index=False)
 
 
 def validation(epoch, model, data_loader, criterion, device):
