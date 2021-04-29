@@ -20,6 +20,8 @@ from utils import *
 from dataset import *
 
 import wandb
+from adamp import AdamP
+
 
 def get_train_transform(height = 224, width = 224):
     return A.Compose([
@@ -118,7 +120,7 @@ def train(args):
     
     val_dataset, val_loader = get_DataLoader(args.dataset, 'val', transform=val_transform,
                                             batch_size=args.valid_batch_size, shuffle=args.shuffle,
-                                            num_workers=1)
+                                            num_workers=4)
     
     test_dataset, test_loader = get_DataLoader(args.dataset, 'test', transform=test_transform,
                                             batch_size=args.valid_batch_size, shuffle=False,
@@ -141,12 +143,15 @@ def train(args):
 
         # -- loss & metric
     criterion = nn.CrossEntropyLoss()
-    opt_module = getattr(import_module("torch.optim"), args.optimizer)  # default: SGD
-    optimizer = opt_module(
-        filter(lambda p: p.requires_grad, model.parameters()),
-        lr=args.lr,
-        weight_decay=5e-4
-    )
+    if args.optimizer.lower() == 'adamp':
+        optimizer = AdamP(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, betas=(0.9, 0.999), weight_decay=1e-6)
+    else:
+        opt_module = getattr(import_module("torch.optim"), args.optimizer)  # default: Adam
+        optimizer = opt_module(
+            filter(lambda p: p.requires_grad, model.parameters()),
+            lr=args.lr,
+            weight_decay=1e-6
+        )
     scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
 
 
@@ -157,17 +162,14 @@ def train(args):
         model.train()
         mean_loss = 0
         for step, (images, masks, _) in enumerate(train_loader):
-            images = torch.stack(images)       # (batch, channel, height, width)
-            masks = torch.stack(masks).long()  # (batch, channel, height, width)
+            images = torch.stack(images).to(device)       # (batch, channel, height, width)
+            masks = torch.stack(masks).long().to(device)  # (batch, channel, height, width)
             
-            # gpu 연산을 위해 device 할당
-            images, masks = images.to(device), masks.to(device)
-
             # 50% 확률 cutmix
             mix_decision = np.random.rand()
             if mix_decision < 0.5:
                 # cutmix(data, target, alpha)
-                images, masks = cutmix(images, masks, 1., half=False)
+                images, masks = cutmix(images, masks, 1., half=True)
             
             # inference
             outputs = model(images)
@@ -282,16 +284,16 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', type=int, default=4, help='num_workers')
     parser.add_argument('--dataset', type=str, default='../input/data', help='dataset directory')
     parser.add_argument('--num_classes', type=int, default=12, help='number of classes')
-    parser.add_argument('--batch_size', type=int, default=8, help='input batch size for training (default: 64)')
-    parser.add_argument('--valid_batch_size', type=int, default=8, help='input batch size for validing (default: 1000)')
+    parser.add_argument('--batch_size', type=int, default=8, help='input batch size for training (default: 8)')
+    parser.add_argument('--valid_batch_size', type=int, default=8, help='input batch size for validing (default: 8)')
     parser.add_argument('--val_every', type=int, default=1, help='validation every {val_every}')
     parser.add_argument('--model', type=str, default='DeepLabV3Plus', help='model type (default: DeepLabV3Plus)')
     parser.add_argument('--encoder_name', type=str, default='timm-regnety_320', help='model encoder type (default: RegNetY320)')
     parser.add_argument('--encoder_weights', type=str, default='imagenet', help='model pretrain weight type (default: imagenet)')
     parser.add_argument('--in_channels', type=int, default=3, help='number of channels (default: 3)')
     parser.add_argument('--optimizer', type=str, default='Adam', help='optimizer type (default: Adam)')
-    parser.add_argument('--lr', type=float, default=3e-4, help='learning rate (default: 3e-4)')
-    parser.add_argument('--lr_decay_step', type=int, default=10, help='learning rate scheduler deacy step (default: 20)')
+    parser.add_argument('--lr', type=float, default=1e-4, help='learning rate (default: 1e-4)')
+    parser.add_argument('--lr_decay_step', type=int, default=5, help='learning rate scheduler deacy step (default: 5)')
     parser.add_argument('--name', type=str, default='Baseline Code', help='model save at')
     parser.add_argument('--save_limit', type=int, default=10, help='maximum limitation to save')
     parser.add_argument('--image_resize', type=int, default=224, help='resize image to train & val & test')
