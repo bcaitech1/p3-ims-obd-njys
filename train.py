@@ -160,6 +160,7 @@ def train(args):
     best_mIoU = 0
     for epoch in range(args.epochs):
         model.train()
+        mean_loss = 0
         for step, (images, masks, _) in enumerate(train_loader):
             images = torch.stack(images).to(device)       # (batch, channel, height, width)
             masks = torch.stack(masks).long().to(device)  # (batch, channel, height, width)
@@ -178,14 +179,15 @@ def train(args):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
-            wandb.log({'train_loss': loss})
-
+            
+            mean_loss += loss
+            
             # step 주기에 따른 loss 출력
             if (step + 1) % 25 == 0:
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'.format(
                     epoch+1, args.epochs, step+1, len(train_loader), loss.item()))
-                
+
+        wandb.log({'train_loss': mean_loss/(step+1)})    
         
         scheduler.step()
         # validation 주기에 따른 loss 출력 및 best model 저장
