@@ -87,7 +87,7 @@ def main(args):
             makeSubmission(file_names, preds, path)
 
 
-def makeSubmission(file_names, preds, wegith_dir):
+def makeSubmission(file_names, preds, weight_dir):
     submission = pd.read_csv('./submission/sample_submission.csv', index_col=None)
     for file_name, string in zip(file_names, preds):
         submission = submission.append({"image_id" : file_name, "PredictionString" : ' '.join(str(e) for e in string.tolist())}, 
@@ -95,13 +95,20 @@ def makeSubmission(file_names, preds, wegith_dir):
 
 
     # submission.csv로 저장
-    _, model_name, file_name = wegith_dir.split('/')
-    _, epoch, _, loss = file_name.split('_')
+    _, model_name, file_name = weight_dir.split('/')
+    _, epoch, metric, metric_score = file_name.split('_')
     path = os.path.join(f'submission/{model_name}')
     if not os.path.isdir(path):
         os.mkdir(path)
-    loss = loss.replace('.pth','').replace('.pt','')
-    path = f'{path}/epoch_{epoch}_loss_{float(loss):.5f}.csv'
+    metric_score = metric_score.replace('.pth','').replace('.pt','')
+    if metric == 'mIoU':
+        path = f'{path}/epoch_{epoch}_mIoU_{float(metric_score):.5f}.csv'
+    elif metric == 'loss':
+        path = f'{path}/epoch_{epoch}_loss_{float(metric_score):.5f}.csv'
+    else:
+        print("model(.pt || .pth) name error!")
+        print("check weight_dir : " + weight_dir)
+        return
     submission.to_csv(path, index=False)
     print(f'{path} is generated')
 
