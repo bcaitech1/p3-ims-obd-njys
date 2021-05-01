@@ -112,7 +112,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=64, help='input batch size for training (default: 64)')
     parser.add_argument('--num_classes', type=int, default=12, help='number of classes')
     parser.add_argument('--model', type=str, default='DeepLabV3Plus', help='model type (default: DeepLabV3Plus)')
-    parser.add_argument('--encoder_name', type=str, default='timm-regnety_320', help='model encoder type (default: RegNetY320)')
+    parser.add_argument('--encoder_name', type=str, default='senet154', help='model encoder type (default: senet154)')
     parser.add_argument('--encoder_weights', type=str, default='imagenet', help='model pretrain weight type (default: imagenet)')
     parser.add_argument('--in_channels', type=int, default=3, help='number of channels (default: 3)')
     parser.add_argument('--weight_dir', type=str, default='saved/Baseline_Code_DeepLabV3Plus', help='weight directory folder or file to test')
