@@ -23,8 +23,8 @@ import wandb
 from adamp import AdamP
 
 
-def get_train_transform(CropSize = -1, height = 224, width = 224):
-    if CropSize <= -1:
+def get_train_transform(CropSize = 0, height = 224, width = 224):
+    if CropSize <= 0:
         return A.Compose([
                         A.Resize(height, width),
                         ToTensorV2()
@@ -36,8 +36,8 @@ def get_train_transform(CropSize = -1, height = 224, width = 224):
                         ToTensorV2()
                         ])
 
-def get_val_transform(CropSize = -1, height = 224, width = 224):
-    if CropSize <= -1:
+def get_val_transform(CropSize = 0, height = 224, width = 224):
+    if CropSize <= 0:
         return A.Compose([
                         A.Resize(height, width),
                         ToTensorV2()
@@ -167,7 +167,7 @@ def train(args):
             weight_decay=1e-6
         )
     scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
-
+    isCutMix = args.cutmix
 
     print('Start training..')
     best_loss = np.Inf
@@ -180,10 +180,11 @@ def train(args):
             masks = torch.stack(masks).long().to(device)  # (batch, channel, height, width)
             
             # 50% 확률 cutmix
-            mix_decision = np.random.rand()
-            if mix_decision < 0.5:
-                # cutmix(data, target, alpha)
-                images, masks = cutmix(images, masks, 1., half=True)
+            if isCutMix == True:
+                mix_decision = np.random.rand()
+                if mix_decision < 0.5:
+                    # cutmix(data, target, alpha)
+                    images, masks = cutmix(images, masks, 1., half=True)
             
             # inference
             outputs = model(images)
@@ -311,7 +312,8 @@ if __name__ == '__main__':
     parser.add_argument('--name', type=str, default='Baseline Code', help='model save at')
     parser.add_argument('--save_limit', type=int, default=10, help='maximum limitation to save')
     parser.add_argument('--image_resize', type=int, default=224, help='resize image to train & val & test')
-    parser.add_argument('--center_crop_size', type=int, default=-1, help='center crop size, default is false(-1)')
+    parser.add_argument('--center_crop_size', type=int, default=0, help='center crop size, (default : 0)')
+    parser.add_argument('--cutmix', type=bool, default=False, help='cutmix mode set, (default : False)')
     # parser.add_argument('--name', default='Baseline Code', help='model save at')
 
     # Container environment
