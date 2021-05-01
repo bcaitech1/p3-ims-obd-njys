@@ -78,6 +78,8 @@ def main(args):
         makeSubmission(file_names, preds, weight_dir)
     else:
         for files in os.listdir(weight_dir):
+            if os.path.isdir(files): # error handling 
+                continue
             path = os.path.join(weight_dir, files)
             model = load_model(model, path)
             file_names, preds = test(model, test_loader, device)
