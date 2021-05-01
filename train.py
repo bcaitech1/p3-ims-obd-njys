@@ -302,7 +302,7 @@ if __name__ == '__main__':
     parser.add_argument('--valid_batch_size', type=int, default=8, help='input batch size for validing (default: 8)')
     parser.add_argument('--val_every', type=int, default=1, help='validation every {val_every}')
     parser.add_argument('--model', type=str, default='DeepLabV3Plus', help='model type (default: DeepLabV3Plus)')
-    parser.add_argument('--encoder_name', type=str, default='timm-regnety_320', help='model encoder type (default: RegNetY320)')
+    parser.add_argument('--encoder_name', type=str, default='senet154', help='model encoder type (default: SeNet154)')
     parser.add_argument('--encoder_weights', type=str, default='imagenet', help='model pretrain weight type (default: imagenet)')
     parser.add_argument('--in_channels', type=int, default=3, help='number of channels (default: 3)')
     parser.add_argument('--optimizer', type=str, default='Adam', help='optimizer type (default: Adam)')
