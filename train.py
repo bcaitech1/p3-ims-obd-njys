@@ -212,7 +212,7 @@ def train(args):
                 if not os.path.isdir(saved_dir):
                     os.mkdir(saved_dir)
 
-                print('Best performance at epoch: {}'.format(epoch + 1))
+                print('[loss] Best performance at epoch: {}'.format(epoch + 1))
                 print('Save model in', saved_dir)
                 best_loss = avrg_loss
                 save_model(model, saved_dir=saved_dir, file_name = f'epoch_{epoch}_loss_{best_loss:.4f}.pth', save_limit=args.save_limit)

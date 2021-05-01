@@ -91,10 +91,17 @@ def load_model(model, PATH):
     return model
 
 
-def save_model(model, saved_dir, file_name='fcn8s_best_model(pretrained).pt', save_limit=10):
+def save_model(model, saved_dir, file_name='best_model(pretrained).pt', save_limit=10):
     check_point = {'net': model.state_dict()}
     output_path = os.path.join(saved_dir, file_name)
     file_list = os.listdir(saved_dir)
+    for fl in file_list: # error handling
+        if os.path.isdir(fl):
+            try:
+                file_list.remove(fl)
+            except:
+                print('error causes while removing directory :', fl)
+
     for fl in sorted(file_list, key=lambda x:int(x.split('_')[1]))[:-save_limit-1]:
         os.remove(os.path.join(saved_dir, fl))
 
