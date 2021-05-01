@@ -23,7 +23,7 @@ import wandb
 from adamp import AdamP
 
 
-def get_train_transform(CropSize = -1, height = 224, width = 224):
+def get_train_transform(CropSize = 0, height = 224, width = 224):
     if CropSize <= 0:
         return A.Compose([
                         A.Resize(height, width),
@@ -36,7 +36,7 @@ def get_train_transform(CropSize = -1, height = 224, width = 224):
                         ToTensorV2()
                         ])
 
-def get_val_transform(CropSize = -1, height = 224, width = 224):
+def get_val_transform(CropSize = 0, height = 224, width = 224):
     if CropSize <= 0:
         return A.Compose([
                         A.Resize(height, width),
