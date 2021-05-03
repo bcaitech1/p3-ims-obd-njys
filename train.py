@@ -157,7 +157,7 @@ def train(args):
     # model = torch.nn.DataParallel(model)
 
         # -- loss & metric
-    criterion = args.loss()
+    criterion = args.loss
     if args.optimizer.lower() == 'adamp':
         optimizer = AdamP(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, betas=(0.9, 0.999), weight_decay=1e-6)
     else:
