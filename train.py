@@ -18,6 +18,7 @@ from albumentations.pytorch import ToTensorV2
 
 from utils import *
 from dataset import *
+from loss import *
 
 import wandb
 from adamp import AdamP
@@ -156,7 +157,7 @@ def train(args):
     # model = torch.nn.DataParallel(model)
 
         # -- loss & metric
-    criterion = nn.CrossEntropyLoss()
+    criterion = args.loss()
     if args.optimizer.lower() == 'adamp':
         optimizer = AdamP(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, betas=(0.9, 0.999), weight_decay=1e-6)
     else:
@@ -314,6 +315,7 @@ if __name__ == '__main__':
     parser.add_argument('--image_resize', type=int, default=224, help='resize image to train & val & test')
     parser.add_argument('--center_crop_size', type=int, default=0, help='center crop size, (default : 0)')
     parser.add_argument('--cutmix', type=bool, default=False, help='cutmix mode set, (default : False)')
+    parser.add_argument('--loss', type=str, default='nn.CrossEntropyLoss()', help='loss function (default : CrossEntropyLoss(), option: LabelSmoothingCrossEntropy(smoothing = 0.5), FocalLoss(gamma = 2.0))')
     # parser.add_argument('--name', default='Baseline Code', help='model save at')
 
     # Container environment
