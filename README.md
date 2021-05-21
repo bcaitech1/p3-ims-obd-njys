@@ -7,6 +7,10 @@
 - 유지훈
 - 박경환
 
+# Wrap-up Reports
+## 1. segmentation : https://www.notion.so/joo0214/WRAP-UP-REPORT-SEMANTIC-SEGMENTATION-404b20534f6544e29c97a783adbb929a
+## 2. detection : https://www.notion.so/joo0214/WRAP-UP-REPORT-OBJECT-DETECTION-b600c6dd10e3450999f38bb4115bef72
+
 ## 사용법
 - master 에서 바로 작업 하지 않기.
 - 본인의 opt/ml/code 등 git hub 아닌 폴더에 파일 복사해서 작업하고 변경한 아이디어가 좋은게 있으면 PR 날리기
